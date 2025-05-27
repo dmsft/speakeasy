@@ -698,6 +698,24 @@ class Msvcrt(api.ApiHandler):
 
         return self.rand_int
 
+    @apihook('rand_s', argc=1, conv=e_arch.CALL_CONV_CDECL)
+    def rand_s(self, emu, argv, ctx={}):
+        """
+        errno_t rand_s(unsigned int* randomValue);
+        """
+
+        randomValue, = argv
+
+        # Generate a random number
+        if randomValue:
+            self.rand_int += 1
+            rand_num = self.rand_int & 0xFFFFFFFF
+            self.mem_write(randomValue, rand_num.to_bytes(4, 'little'))
+        else:
+            self.set_errno(EINVAL)
+
+        return 0
+
     @apihook('__set_app_type', argc=1, conv=e_arch.CALL_CONV_CDECL)
     def __set_app_type(self, emu, argv, ctx={}):
         """
@@ -1695,9 +1713,9 @@ class Msvcrt(api.ApiHandler):
         if not self.errno_t:
             self.errno_t = self.mem_alloc(4, tag='api.msvcrt._errno')
             self.mem_write(self.errno_t, _VAL.to_bytes(4, 'little'))
-        
+
         return self.errno_t
-    
+
     @apihook('fputc', argc=2)
     def fputc(self, emu, argv, ctx={}):
         '''
@@ -1723,3 +1741,29 @@ class Msvcrt(api.ApiHandler):
             return SIG_IGN
         else:
             return SIG_ERR
+
+    @apihook('___lc_codepage_func', argc=0)
+    def ___lc_codepage_func(self, emu, argv, ctx={}):
+        '''
+        UINT ___lc_codepage_func(void);
+        '''
+
+        return 0
+
+    @apihook('_wfopen', argc=2)
+    def _wfopen(self, emu, argv, ctx={}):
+        '''
+        FILE *_wfopen(
+            const wchar_t *filename,
+            const wchar_t *mode
+        );
+        '''
+        filename, mode = argv
+
+        if not filename or not mode:
+            return 0
+
+        filename_str = self.read_wide_string(filename)
+        mode_str = self.read_wide_string(mode)
+
+        return self.file_open(filename_str, create=True)
