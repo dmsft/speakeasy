@@ -348,3 +348,25 @@ class Ntdll(api.ApiHandler):
 
         return 0
 
+
+    @apihook('strncmp', argc=3)
+    def strncmp(self, emu, argv, ctx={}):
+        s1, s2, c = argv
+        rv = 1
+
+        string1 = self.read_mem_string(s1, 1)
+        string2 = self.read_mem_string(s2, 1)
+        if string1 == string2:
+            rv = 0
+
+        argv[0] = string1
+        argv[1] = string2
+
+        return rv
+        
+    @apihook('strlen', argc=1)
+    def strlen(self, emu, argv, ctx={}):
+        string = self.read_mem_string(argv[0], 1)
+        argv[0] = string
+        return len(string)
+        
